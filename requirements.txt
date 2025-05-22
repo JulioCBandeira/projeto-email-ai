@@ -1,0 +1,5 @@
+flask
+requests
+python-dotenv
+PyPDF2
+huggingface-hub>=0.20.3
