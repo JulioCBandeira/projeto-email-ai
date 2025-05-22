@@ -5,15 +5,15 @@ from huggingface_hub import InferenceClient
 import os
 import PyPDF2
 
+# Carregar variáveis de ambiente
 load_dotenv()
 
+# Configuração inicial do app
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-DEBUG_PRINT_CONTENT = True  # Altere para False se não quiser exibir conteúdo extraído
-
-# Cliente da Hugging Face com provedor Nebius
+# Cliente Hugging Face com provedor Nebius
 client = InferenceClient(
     provider="nebius",
     api_key=os.getenv("HF_API_KEY")
@@ -41,7 +41,6 @@ Retorne no seguinte formato:
 Categoria: <PRODUTIVO ou IMPRODUTIVO>
 Resposta: <resposta gerada ou "Nenhuma necessária">
 """
-
     try:
         completion = client.chat.completions.create(
             model=MODEL_NAME,
@@ -49,7 +48,6 @@ Resposta: <resposta gerada ou "Nenhuma necessária">
         )
         response_text = completion.choices[0].message.content
 
-        # Separar categoria e resposta
         categoria = "Não identificada"
         resposta = ""
 
@@ -59,7 +57,10 @@ Resposta: <resposta gerada ou "Nenhuma necessária">
             elif "Resposta:" in line:
                 resposta = line.replace("Resposta:", "").strip()
 
-        resultado_formatado = f"<strong>Categoria:</strong> {categoria}<br><strong>Resposta:</strong> {resposta}"
+        resultado_formatado = (
+            f"<strong>Categoria:</strong> {categoria}<br>"
+            f"<strong>Resposta:</strong> {resposta}"
+        )
         return {"generated_text": resultado_formatado}
 
     except Exception as e:
@@ -95,23 +96,18 @@ def upload_file():
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     file.save(filepath)
 
-    text_content = ""
     try:
-        if filename.endswith(".pdf"):
+        if filename.lower().endswith(".pdf"):
             with open(filepath, "rb") as f:
                 reader = PyPDF2.PdfReader(f)
-                for page in reader.pages:
-                    text_content += page.extract_text() or ""
-        elif filename.endswith(".txt"):
+                text_content = "".join(page.extract_text() or "" for page in reader.pages)
+        elif filename.lower().endswith(".txt"):
             with open(filepath, "r", encoding="utf-8") as f:
                 text_content = f.read()
         else:
             return jsonify({"error": "Formato não suportado. Use .pdf ou .txt."})
     except Exception as e:
         return jsonify({"error": f"Erro ao ler o arquivo: {str(e)}"})
-
-    if DEBUG_PRINT_CONTENT:
-        print(f"[DEBUG] Conteúdo extraído de '{filename}':\n{text_content[:500]}...\n")
 
     result = get_huggingface_response(text_content)
 
@@ -122,4 +118,4 @@ def upload_file():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run()
