@@ -12,7 +12,7 @@ html, body {
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   color: #333;
-  background-color: #f0f0f0;
+  background-color: #07243e;
   display: flex;
   flex-direction: column;
 }
@@ -91,7 +91,7 @@ main {
   margin-bottom: 15px;
 }
 
- .hero-section .chatbot-title {
+.chatbot-title {
   text-align: center;
   font-size: 1.5rem;
   font-weight: bold;
@@ -173,7 +173,27 @@ main {
   padding: 80px 20px;
   background: white;
   color: #333;
+  border-top-left-radius: 1rem; 
+  border-top-right-radius: 1rem;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
 }
+
+.about-card {
+  display: flex;
+  align-items: center;
+  background-color: #fff;
+  border-radius: 20px;
+  padding: 40px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.about-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+}
+
 
 .profile-pic {
   width: 180px;
