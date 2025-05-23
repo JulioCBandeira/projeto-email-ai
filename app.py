@@ -4,6 +4,8 @@ from werkzeug.utils import secure_filename
 from huggingface_hub import InferenceClient
 import os
 import PyPDF2
+import unicodedata
+import re
 
 # Carregar variáveis de ambiente
 load_dotenv()
@@ -21,27 +23,38 @@ client = InferenceClient(
 
 MODEL_NAME = "google/gemma-2-2b-it"
 
+def limpar_texto(texto):
+    # Remover caracteres especiais e normalizar a acentuação
+    texto = unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('ASCII')
+    texto = re.sub(r'\s+', ' ', texto)  # Remove múltiplos espaços
+    return texto.strip()
+
 def get_huggingface_response(message):
+    # Limpeza do texto
+    message = limpar_texto(message)
+
     prompt = f"""
-Classifique o seguinte e-mail como PRODUTIVO ou IMPRODUTIVO e, se for PRODUTIVO, gere uma resposta breve e formal.
+    Classifique o seguinte e-mail como PRODUTIVO ou IMPRODUTIVO. Se for PRODUTIVO, gere uma resposta breve e formal. Se for IMPRODUTIVO, informe que não é necessária uma resposta.
 
-Exemplos:
-E-mail: "Gostaria de saber os horários disponíveis para marcar uma reunião."
-Categoria: PRODUTIVO
-Resposta: Agradecemos seu contato. Estamos disponíveis na próxima semana nos dias 24 e 25 às 10h.
+    Exemplos:
+    E-mail: "Gostaria de saber os horários disponíveis para marcar uma reunião."
+    Categoria: PRODUTIVO
+    Resposta: Agradecemos seu contato. Estamos disponíveis na próxima semana nos dias 24 e 25 às 10h.
 
-E-mail: "Feliz natal"
-Categoria: IMPRODUTIVO
-Resposta: Nenhuma necessária
+    E-mail: "Feliz natal"
+    Categoria: IMPRODUTIVO
+    Resposta: Nenhuma necessária
 
-Agora, analise este e-mail:
-\"\"\"{message}\"\"\"
+    Agora, analise este e-mail:
+    "{message}"
 
-Retorne no seguinte formato:
-Categoria: <PRODUTIVO ou IMPRODUTIVO>
-Resposta: <resposta gerada ou "Nenhuma necessária">
-"""
+    Responda no seguinte formato:
+    Categoria: <PRODUTIVO ou IMPRODUTIVO>
+    Resposta: <resposta gerada ou "Nenhuma necessária">
+    """
+
     try:
+        # Chama o modelo da HuggingFace
         completion = client.chat.completions.create(
             model=MODEL_NAME,
             messages=[{"role": "user", "content": prompt}]
@@ -51,6 +64,7 @@ Resposta: <resposta gerada ou "Nenhuma necessária">
         categoria = "Não identificada"
         resposta = ""
 
+        # Extrair Categoria e Resposta do texto retornado
         for line in response_text.splitlines():
             if "Categoria:" in line:
                 categoria = line.replace("Categoria:", "").strip()
@@ -66,11 +80,9 @@ Resposta: <resposta gerada ou "Nenhuma necessária">
     except Exception as e:
         return {"error": str(e)}
 
-
 @app.route("/")
 def index():
     return render_template("index.html")
-
 
 @app.route("/chat", methods=["POST"])
 def chat():
@@ -81,7 +93,6 @@ def chat():
         return jsonify({"error": result["error"]})
 
     return jsonify({"reply": result["generated_text"]})
-
 
 @app.route("/upload", methods=["POST"])
 def upload_file():
@@ -109,6 +120,9 @@ def upload_file():
     except Exception as e:
         return jsonify({"error": f"Erro ao ler o arquivo: {str(e)}"})
 
+    # Limpeza do texto extraído
+    text_content = limpar_texto(text_content)
+
     result = get_huggingface_response(text_content)
 
     if "error" in result:
@@ -116,6 +130,5 @@ def upload_file():
 
     return jsonify({"reply": f"<strong>Arquivo enviado:</strong> {filename}<br>" + result["generated_text"]})
 
-
 if __name__ == "__main__":
-    app.run()
+    app.run(debug=True)
